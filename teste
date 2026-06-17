@@ -25,3 +25,64 @@ locals {
     }
   ] : []
 }
+
+
+
+
+
+
+resource "aws_kms_key" "aur" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  enable_key_rotation = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Id      = "${local.name}-${var.cluster_id}"
+
+    Statement = concat(
+      [
+        {
+          Sid    = "Allow admin of the key"
+          Effect = "Allow"
+
+          Principal = {
+            Service = "logs.sa-east-1.amazonaws.com"
+            AWS = [
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/",
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/"
+            ]
+          }
+
+          Action   = "kms:*"
+          Resource = "*"
+        },
+
+        {
+          Sid    = "Allow use of key in another account"
+          Effect = "Allow"
+
+          Principal = {
+            AWS = [
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+            ]
+          }
+
+          Action = [
+            "kms:Encrypt",
+            "kms:Decrypt",
+            "kms:ReEncrypt*",
+            "kms:GenerateDataKey*",
+            "kms:DescribeKey"
+          ]
+
+          Resource = "*"
+        }
+      ],
+
+      local.custom_kms_role_statement
+    )
+  })
+}
