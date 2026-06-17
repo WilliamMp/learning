@@ -1,0 +1,27 @@
+locals {
+  custom_kms_role_arns = [
+    for arn in var.custom_kms_role_arns : arn
+    if trimspace(arn) != ""
+  ]
+
+  custom_kms_role_statement = length(local.custom_kms_role_arns) > 0 ? [
+    {
+      Sid    = "AllowCustomRolesUseOfKey"
+      Effect = "Allow"
+
+      Principal = {
+        AWS = local.custom_kms_role_arns
+      }
+
+      Action = [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ]
+
+      Resource = "*"
+    }
+  ] : []
+}
