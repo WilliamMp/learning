@@ -86,3 +86,30 @@ resource "aws_kms_key" "aur" {
     )
   })
 }
+
+
+
+
+
+
+
+Ativa com True or False o bin_log
+
+variable "log_bin_trust_function_creators" {
+  type        = bool
+  description = "Habilita criação de functions/triggers sem SUPER quando binary log está ativo. Use 1 para habilitar, 0 para manter desabilitado."
+  default     = false
+}
+
+
+
+resource "aws_db_parameter_group" "mysql" {
+  name   = "meu-rds-mysql-pg"
+  family = "mysql8.0"
+
+  parameter {
+    name         = "log_bin_trust_function_creators"
+    value        = var.enable_log_bin_trust_function_creators ? "1" : "0"
+    apply_method = "immediate"
+  }
+}
