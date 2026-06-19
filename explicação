@@ -1,0 +1,133 @@
+# Alteração: habilitar `log_bin_trust_function_creators` via variável
+
+## Objetivo
+
+Foi adicionada uma nova variável no módulo Terraform para permitir habilitar ou desabilitar o parâmetro:
+
+```hcl
+log_bin_trust_function_creators
+```
+
+Esse parâmetro é usado em RDS MySQL/MariaDB quando existe erro ao criar `FUNCTION` ou `TRIGGER` com binary log habilitado, como:
+
+```text
+You do not have the SUPER privilege and binary logging is enabled
+```
+
+Por padrão, o parâmetro fica desabilitado.
+
+---
+
+# Alterações no módulo
+
+## 1. Nova variável no módulo
+
+Arquivo: `variables.tf`
+
+```hcl
+variable "enable_log_bin_trust_function_creators" {
+  type        = bool
+  description = "Habilita criação de functions/triggers sem SUPER quando binary log está ativo."
+  default     = false
+}
+```
+
+## 2. Alteração no Parameter Group
+
+Arquivo: `main.tf`
+
+```hcl
+resource "aws_db_parameter_group" "mysql" {
+  name   = "meu-rds-mysql-pg"
+  family = "mysql8.0"
+
+  parameter {
+    name         = "log_bin_trust_function_creators"
+    value        = var.enable_log_bin_trust_function_creators ? "1" : "0"
+    apply_method = "immediate"
+  }
+}
+```
+
+Com isso:
+
+```hcl
+enable_log_bin_trust_function_creators = false
+```
+
+mantém o parâmetro como:
+
+```text
+log_bin_trust_function_creators = 0
+```
+
+E:
+
+```hcl
+enable_log_bin_trust_function_creators = true
+```
+
+aplica:
+
+```text
+log_bin_trust_function_creators = 1
+```
+
+---
+
+# Alterações no lado do usuário
+
+O usuário que consome o módulo precisa adicionar a variável nos arquivos do projeto dele.
+
+## 1. Adicionar variável
+
+Arquivo: `variables.tf`
+
+```hcl
+variable "enable_log_bin_trust_function_creators" {
+  type        = bool
+  description = "Habilita criação de functions/triggers sem SUPER quando binary log está ativo."
+  default     = false
+}
+```
+
+## 2. Repassar variável para o módulo
+
+Arquivo: `main.tf`
+
+```hcl
+module "rds" {
+  source = "caminho/do/modulo"
+
+  enable_log_bin_trust_function_creators = var.enable_log_bin_trust_function_creators
+}
+```
+
+## 3. Configurar valor no tfvars
+
+Arquivo: `terraform.tfvars`
+
+Para manter desabilitado, não é necessário informar nada, pois o padrão é `false`.
+
+Caso precise habilitar:
+
+```hcl
+enable_log_bin_trust_function_creators = true
+```
+
+---
+
+# Comportamento esperado
+
+| Valor no `terraform.tfvars` | Valor aplicado no RDS                 |
+| --------------------------- | ------------------------------------- |
+| `false`                     | `log_bin_trust_function_creators = 0` |
+| `true`                      | `log_bin_trust_function_creators = 1` |
+
+---
+
+# Observação
+
+Esse parâmetro deve ser habilitado somente quando necessário, pois ele permite a criação de `FUNCTION` e `TRIGGER` sem exigir o privilégio `SUPER` quando o binary log está ativo.
+
+O uso recomendado é manter o padrão como `false` e habilitar somente em casos onde a aplicação ou processo de importação realmente precise criar functions ou triggers.
